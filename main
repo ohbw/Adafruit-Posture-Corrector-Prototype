@@ -1,0 +1,153 @@
+#include <Adafruit_CircuitPlayground.h>
+
+#define VIBRATION_MOTOR_PIN 10    // Pin for the vibration motor
+#define SITTING_THRESHOLD 9.5    // Acceleration threshold for detecting sitting (m/s²)
+#define MOVEMENT_THRESHOLD 9.7    // Acceleration threshold for detecting movement (m/s²)
+#define SITTING_TIME_LIMIT 30000 // 15 minutes in milliseconds
+#define BAD_POSTURE_TIME_LIMIT 10000 // 10 seconds in milliseconds
+#define SITTING_DETECTION_TIME 20000 // 20 seconds in milliseconds
+
+unsigned long sittingStillStartTime = 0;   // Track when the user stopped moving
+unsigned long sittingStartTime = 0;        // Track when the user started sitting
+unsigned long badPostureStartTime = 0;     // Track when bad posture starts
+bool isSitting = false;
+bool inBadPosture = false;
+bool isStill = false;
+
+void setup() {
+  CircuitPlayground.begin();             // Initialize Circuit Playground
+  Serial.begin(9600);                    // Start Serial communication
+  pinMode(VIBRATION_MOTOR_PIN, OUTPUT);  // Set vibration motor pin as output
+  digitalWrite(VIBRATION_MOTOR_PIN, LOW); // Turn off vibration motor initially
+  CircuitPlayground.clearPixels();       // Clear all LEDs initially
+}
+
+void loop() {
+  
+  // Get accelerometer data for X, Y, Z axes
+  float X = CircuitPlayground.motionX();
+  float Y = CircuitPlayground.motionY();
+  float Z = CircuitPlayground.motionZ();
+  
+  // Calculate total acceleration (net acceleration) magnitude
+  float totalAccel = sqrt(X * X + Y * Y + Z * Z);
+
+  // Print the total net acceleration for debugging
+  Serial.print("Total net acceleration: ");
+  Serial.println(totalAccel);
+
+  // Calculate tilt angle for posture detection (based on Z-axis)
+  float tilt = acos(Z / 9.8) * (180.0 / PI);  // Convert Z-axis data to tilt angle
+  Serial.println(tilt);
+  const float tiltThreshold = 30.0;  // Bad posture threshold (degrees from upright)
+
+  // Check if the user is moving or not (based on acceleration)
+  if (totalAccel > MOVEMENT_THRESHOLD) {
+    // User is moving, reset still timer
+    isStill = false;
+    sittingStillStartTime = 0;
+    if (isSitting) {
+      isSitting = false;
+      sittingStartTime = 0;
+      Serial.println("User is moving. Timer reset.");
+    }
+  } else {
+    // User is still, start or continue the stillness timer
+    if (!isStill) {
+      isStill = true;
+      sittingStillStartTime = millis();  // Start tracking stillness
+    }
+
+    // Check if the user has been still for 20 seconds
+    if (millis() - sittingStillStartTime >= SITTING_DETECTION_TIME) {
+      if (!isSitting) {
+        // User just started sitting after being still for 20 seconds
+        isSitting = true;
+        sittingStartTime = millis();  // Start sitting timer
+        Serial.println("User is sitting down. Timer started.");
+      }
+    }
+  }
+
+  // Feedback if sitting too long
+  if (isSitting) {
+    // Check if the user has been sitting for 15 minutes
+    if (millis() - sittingStartTime >= SITTING_TIME_LIMIT) {
+      Serial.println("15 minutes of sitting detected. Playing sound.");
+      playCustomRingtone();
+    } 
+  } else {
+    Serial.print("Not sitting. ");
+  }
+
+  // Print posture status
+  if (tilt < (90 - tiltThreshold)) {
+    Serial.println("Bad posture.");
+  } else {
+    Serial.println("Good posture.");
+  }
+
+  // Check if the user has bad posture
+  if (tilt < (90 - tiltThreshold)) {
+    if (!inBadPosture) {
+      // User just entered bad posture
+      inBadPosture = true;
+      badPostureStartTime = millis();  // Start bad posture timer
+    } else {
+      // Check if bad posture has persisted for 10 seconds
+      if (millis() - badPostureStartTime >= BAD_POSTURE_TIME_LIMIT) {
+        activateVibrationMotor();  // Trigger vibration motor after 10 seconds
+        Serial.println("Bad posture detected for more than 10 seconds.");
+      }
+    }
+    setLEDsBadPosture();  // Turn all LEDs red for bad posture
+  } else {
+    // Good posture
+    if (inBadPosture) {
+      // Reset bad posture state
+      inBadPosture = false;
+      badPostureStartTime = 0;
+      deactivateVibrationMotor();  // Stop vibration motor
+    }
+    setLEDsGoodPosture();  // Turn all LEDs green for good posture
+  }
+
+  delay(1000);  // Wait 1 second before checking again
+}
+
+// Function to activate the vibration motor
+void activateVibrationMotor() {
+  digitalWrite(VIBRATION_MOTOR_PIN, HIGH);  // Turn on the motor
+}
+
+// Function to deactivate the vibration motor
+void deactivateVibrationMotor() {
+  digitalWrite(VIBRATION_MOTOR_PIN, LOW);   // Turn off the motor
+}
+
+// Function to set all LEDs to red for bad posture
+void setLEDsBadPosture() {
+  for (int i = 0; i < 10; i++) {
+    CircuitPlayground.setPixelColor(i, 255, 0, 0);  // Red for bad posture
+  }
+}
+
+// Function to set all LEDs to green for good posture
+void setLEDsGoodPosture() {
+  for (int i = 0; i < 10; i++) {
+    CircuitPlayground.setPixelColor(i, 0, 255, 0);  // Green for good posture
+  }
+}
+
+void playCustomRingtone() {
+
+  int melody[] = {262, 294, 330, 349, 392, 440, 494, 523};  
+  int noteDurations[] = {500, 500, 500, 500, 500, 500, 500, 1000}; 
+
+  // Play each note of the melody
+  for (int i = 0; i < 8; i++) {
+    CircuitPlayground.playTone(melody[i], noteDurations[i]);  // Play the tone for the duration
+    delay(noteDurations[i]);  // Add a slight pause between notes
+  }
+  delay(500);  // 500 ms pause after the ringtone finishes
+}
