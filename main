@@ -1,11 +1,11 @@
 #include <Adafruit_CircuitPlayground.h>
 
 #define VIBRATION_MOTOR_PIN 10    // Pin for the vibration motor
-#define SITTING_THRESHOLD 9.5    // Acceleration threshold for detecting sitting (m/s²)
-#define MOVEMENT_THRESHOLD 9.7    // Acceleration threshold for detecting movement (m/s²)
+#define SITTING_THRESHOLD 9.3    // Acceleration threshold for detecting sitting (m/s²)
+#define MOVEMENT_THRESHOLD 9.5    // Acceleration threshold for detecting movement (m/s²)
 #define SITTING_TIME_LIMIT 900000 // 15 minutes in milliseconds
 #define BAD_POSTURE_TIME_LIMIT 10000 // 10 seconds in milliseconds
-#define SITTING_DETECTION_TIME 10000 // 10 seconds in milliseconds
+#define SITTING_DETECTION_TIME 5000 // 5 seconds in milliseconds
 
 unsigned long currentMillis = 0; // Variable to store the current time
 unsigned long sittingStillStartTime = 0;   // Track when the user stopped moving
@@ -16,7 +16,7 @@ unsigned long badPostureStartTime = 0;     // Track when bad posture starts
 bool isSitting = false;
 bool inBadPosture = false;
 bool isStill = false;
-bool hasPlayedSound = false;  
+bool hasPlayedSound = false;
 bool sliderOn = false;
 
 int melodyOption = 0;
@@ -27,12 +27,12 @@ float tilt;
 float X, Y, Z, totalAccel;
 
 unsigned long previousMillis = 0;
-const long interval = 1000;  
-unsigned long sliderMillis = 0; 
-const long sliderInterval = 1000; 
+const long interval = 1000;
+unsigned long sliderMillis = 0;
+const long sliderInterval = 1000;
 
-unsigned long buttonPressMillis = 0;  
-unsigned long button2PressMillis = 0;  
+unsigned long buttonPressMillis = 0;
+unsigned long button2PressMillis = 0;
 
 // Function to activate the vibration motor
 void activateVibrationMotor() {
@@ -62,28 +62,28 @@ void setLEDsGoodPosture() {
 void playMelody1() {
   int melody1[] = {262, 294, 330};  // C4, D4, E4
   int noteDurations1[] = {500, 500, 500};  // Note durations in ms
-  playMelody(melody1, noteDurations1, 3);
+  playMelody(melody1, noteDurations1);
 }
 
 // Function to play melody 2
 void playMelody2() {
   int melody2[] = {392, 440, 494};  // G4, A4, B4
   int noteDurations2[] = {400, 400, 400};  // Note durations in ms
-  playMelody(melody2, noteDurations2, 3);
+  playMelody(melody2, noteDurations2);
 }
 
 // Function to play melody 3
 void playMelody3() {
   int melody3[] = {523, 587, 659};  // C5, D5, E5
   int noteDurations3[] = {600, 600, 600};  // Note durations in ms
-  playMelody(melody3, noteDurations3, 3);
+  playMelody(melody3, noteDurations3);
 }
 
 // General function to play melodies
 void playMelody(int melody[], int noteDurations[], int length) {
-  for (int i = 0; i < length; i++) {
+  for (int i = 0; i < 3; i++) {
     CircuitPlayground.playTone(melody[i], noteDurations[i]);
-    delay(noteDurations[i] * 1.30);  // Add a short pause between notes
+    delay(noteDurations[i]);  // Add a short pause between notes
   }
 }
 
@@ -98,7 +98,7 @@ void setup() {
 void loop() {
   currentMillis = millis();  // Get the current time
 
-  // Check slider value every 1 second 
+  // Check slider value every 1 second
   if (currentMillis - sliderMillis >= sliderInterval) {
     sliderMillis = currentMillis;  // Update the last slider check time
     sliderOn = CircuitPlayground.slideSwitch();  // Read the slider state
@@ -128,7 +128,7 @@ void loop() {
       Serial.println(tilt);
 
       // Compare tilt with reference angle to determine posture
-      if (abs(tilt - referenceTiltAngle) > 30.0) {  // 30 degrees threshold for bad posture 
+      if (abs(tilt - referenceTiltAngle) > 30.0) {  // 30 degrees threshold for bad posture
         if (!inBadPosture) {
           // User just entered bad posture
           inBadPosture = true;
@@ -221,5 +221,4 @@ void loop() {
     Serial.println(referenceTiltAngle);
   }
 }
-
 
