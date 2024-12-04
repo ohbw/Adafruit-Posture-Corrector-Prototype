@@ -80,7 +80,7 @@ void playMelody3() {
 }
 
 // General function to play melodies
-void playMelody(int melody[], int noteDurations[], int length) {
+void playMelody(int melody[], int noteDurations[]) {
   for (int i = 0; i < 3; i++) {
     CircuitPlayground.playTone(melody[i], noteDurations[i]);
     delay(noteDurations[i]);  // Add a short pause between notes
@@ -221,4 +221,3 @@ void loop() {
     Serial.println(referenceTiltAngle);
   }
 }
-
