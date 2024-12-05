@@ -1,8 +1,8 @@
 #include <Adafruit_CircuitPlayground.h>
 
 #define VIBRATION_MOTOR_PIN 10    // Pin for the vibration motor
-#define SITTING_THRESHOLD 9.3    // Acceleration threshold for detecting sitting (m/s²)
-#define MOVEMENT_THRESHOLD 9.5    // Acceleration threshold for detecting movement (m/s²)
+#define SITTING_THRESHOLD 9.6    // Acceleration threshold for detecting sitting (m/s²)
+#define MOVEMENT_THRESHOLD 10.0    // Acceleration threshold for detecting movement (m/s²)
 #define SITTING_TIME_LIMIT 900000 // 15 minutes in milliseconds
 #define BAD_POSTURE_TIME_LIMIT 10000 // 10 seconds in milliseconds
 #define SITTING_DETECTION_TIME 5000 // 5 seconds in milliseconds
@@ -21,15 +21,14 @@ bool sliderOn = false;
 
 int melodyOption = 0;
 
-float referenceTiltAngle = 90.0; // Default "good" posture angle
+float referenceTiltAngle = 90.0; // Default "good" posture angle before calibration
 
 float tilt;
 float X, Y, Z, totalAccel;
 
 unsigned long previousMillis = 0;
-const long interval = 1000;
+const long oneSecondInterval = 1000;
 unsigned long sliderMillis = 0;
-const long sliderInterval = 1000;
 
 unsigned long buttonPressMillis = 0;
 unsigned long button2PressMillis = 0;
@@ -60,7 +59,7 @@ void setLEDsGoodPosture() {
 
 // Function to play melody 1
 void playMelody1() {
-  int melody1[] = {262, 294, 330};  // C4, D4, E4
+  int melody1[] = {262, 294, 330,};  // C4, D4, E4
   int noteDurations1[] = {500, 500, 500};  // Note durations in ms
   playMelody(melody1, noteDurations1);
 }
@@ -83,7 +82,6 @@ void playMelody3() {
 void playMelody(int melody[], int noteDurations[]) {
   for (int i = 0; i < 3; i++) {
     CircuitPlayground.playTone(melody[i], noteDurations[i]);
-    delay(noteDurations[i]);  // Add a short pause between notes
   }
 }
 
@@ -99,14 +97,14 @@ void loop() {
   currentMillis = millis();  // Get the current time
 
   // Check slider value every 1 second
-  if (currentMillis - sliderMillis >= sliderInterval) {
+  if (currentMillis - sliderMillis >= oneSecondInterval) {
     sliderMillis = currentMillis;  // Update the last slider check time
     sliderOn = CircuitPlayground.slideSwitch();  // Read the slider state
   }
 
   if (sliderOn) {
     currentMillis = millis();  // Get the current time
-    if ((currentMillis - previousMillis >= interval)) {
+    if ((currentMillis - previousMillis >= oneSecondInterval)) {
       previousMillis = currentMillis;  // Update the last action time
 
       // Get accelerometer data for X, Y, Z axes
@@ -117,18 +115,11 @@ void loop() {
       // Calculate total acceleration (net acceleration) magnitude
       totalAccel = sqrt(X * X + Y * Y + Z * Z);
 
-      // Print the total net acceleration for debugging
-      Serial.print("Total net acceleration: ");
-      Serial.println(totalAccel);
-
-      // Calculate current tilt angle
-      Z = constrain(Z, -9.8, 9.8);  // Clamp Z value to avoid extreme tilt angles
-      tilt = acos(Z / 9.8) * (180.0 / PI);  // Calculate tilt angle in degrees
-      Serial.print("Current tilt angle: ");
-      Serial.println(tilt);
+      // Calculate tilt angle in degrees
+      tilt = acos(Z / 9.8) * (180.0 / PI);
 
       // Compare tilt with reference angle to determine posture
-      if (abs(tilt - referenceTiltAngle) > 30.0) {  // 30 degrees threshold for bad posture
+      if (abs(tilt - referenceTiltAngle) > 18.3) {  // 18.3 degrees threshold for bad posture
         if (!inBadPosture) {
           // User just entered bad posture
           inBadPosture = true;
@@ -141,12 +132,10 @@ void loop() {
           }
         }
         setLEDsBadPosture();  // Turn all LEDs red for bad posture
-      } else {
-        // Good posture
+      } else { // Tilt in good posture
         if (inBadPosture) {
           // Reset bad posture state
           inBadPosture = false;
-          badPostureStartTime = 0;
           deactivateVibrationMotor();  // Stop vibration motor
         }
         setLEDsGoodPosture();  // Turn all LEDs green for good posture
@@ -156,13 +145,7 @@ void loop() {
       if (totalAccel > MOVEMENT_THRESHOLD) {
         // User is moving, reset still timer
         isStill = false;
-        sittingStillStartTime = 0;
-        if (isSitting) {
-          isSitting = false;
-          sittingStartTime = 0;
-          hasPlayedSound = false;  // Reset the sound playback flag when the user starts moving
-          Serial.println("User is moving. Timer reset.");
-        }
+        isSitting = false;
       } else {
         // User is still, start or continue the stillness timer
         if (!isStill) {
@@ -170,13 +153,12 @@ void loop() {
           sittingStillStartTime = millis();  // Start tracking stillness
         }
 
-        // Check if the user has been still for 20 seconds
+        // Check if the user has been still for 5 seconds
         if (millis() - sittingStillStartTime >= SITTING_DETECTION_TIME) {
           if (!isSitting) {
-            // User just started sitting after being still for 20 seconds
+            // User just started sitting after being still for 5 seconds
             isSitting = true;
             sittingStartTime = millis();  // Start sitting timer
-            Serial.println("User is sitting down. Timer started.");
           }
         }
       }
@@ -184,8 +166,7 @@ void loop() {
       // Feedback if sitting too long
       if (isSitting) {
         // Check if the user has been sitting for 15 minutes
-        if ((millis() - sittingStartTime >= SITTING_TIME_LIMIT) && !hasPlayedSound) {
-          Serial.println("15 minutes of sitting detected. Playing sound.");
+        if (millis() - sittingStartTime >= SITTING_TIME_LIMIT) {
           // Play the selected melody
           if (melodyOption == 0) {
             playMelody1();
@@ -194,30 +175,24 @@ void loop() {
           } else if (melodyOption == 2) {
             playMelody3();
           }
-          hasPlayedSound = true;  // Set flag so the sound plays only once after 15 minutes
-        } else if (!hasPlayedSound) {
-          Serial.print("Not sitting. Time left: ");
-          Serial.print((SITTING_TIME_LIMIT - (millis() - sittingStartTime)) / 1000);
-          Serial.println(" seconds.");
-        }
       }
     }
-  }
-  // Melody button press detection
-  if (CircuitPlayground.leftButton() && (currentMillis - buttonPressMillis > 300)) {
-    melodyOption = (melodyOption + 1) % 3;  // Cycle between 0, 1, and 2
-    Serial.print("Melody option selected: ");
-    Serial.println(melodyOption);
-    buttonPressMillis = currentMillis;  // Update the last button press time
+  } else {
+    CircuitPlayground.clearPixels();  // Turn off all LEDs when slider is off
   }
 
-  // Calibration button press detection
-  if (CircuitPlayground.rightButton() && (currentMillis - button2PressMillis > 300)) {
-    Serial.println("Right button pressed!");
-    button2PressMillis = currentMillis;  // Update the last button press time
+  // Melody button press detection
+  if (CircuitPlayground.leftButton() && (currentMillis - buttonPressMillis > oneSecondInterval)) {
+    melodyOption = (melodyOption + 1) % 3;  // Cycle between 0, 1, and 2 for melody selection
+    buttonPressMillis = currentMillis;
+    Serial.print("Melody option changed to: ");
+    Serial.println(melodyOption);
+  }
+
+  if (CircuitPlayground.rightButton() && (currentMillis - button2PressMillis > oneSecondInterval)) {
     referenceTiltAngle = tilt;
-    Serial.print("Calibration done: ");
-    Serial.print("New reference tilt angle: ");
+    Serial.print("Tilt reference angle updated: ");
     Serial.println(referenceTiltAngle);
+    button2PressMillis = currentMillis;
   }
 }
