@@ -183,16 +183,16 @@ void loop() {
     // Melody button press detection
     if (CircuitPlayground.leftButton() && (currentTime - buttonPressTime > ONE_SECOND_INTERVAL)) {
       melodyOption = (melodyOption + 1) % 3;  // Cycle between 0, 1, and 2 for melody selection
-      buttonPressTime = currentTime;
-      Serial.print("Melody option changed to: ");
+      buttonPressTime = currentTime; // For the cooldown
+      Serial.print("Melody option changed to: "); // Print for debugging
       Serial.println(melodyOption);
     }
 
     if (CircuitPlayground.rightButton() && (currentTime - button2PressTime > ONE_SECOND_INTERVAL)) {
-      referenceTiltAngle = tilt;
-      Serial.print("Tilt reference angle updated: ");
+      referenceTiltAngle = tilt; // Assign the current tilt as the reference
+      button2PressTime = currentTime; // For the cooldown
+      Serial.print("Tilt reference angle updated: "); // Print for debugging
       Serial.println(referenceTiltAngle);
-      button2PressTime = currentTime;
     }
   }
 }
