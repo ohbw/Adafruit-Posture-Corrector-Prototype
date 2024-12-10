@@ -17,15 +17,15 @@ unsigned long badPostureStartTime = 0;     // Track when bad posture starts
 bool isSitting = false;
 bool inBadPosture = false;
 bool isStill = false;
-bool hasPlayedSound = false;
-bool sliderOn = false;
+bool sliderOn = CircuitPlayground.slideSwitch();
 
-int melodyOption = 0;
+int melodyOption = 0; // Cycles between 0, 1, and 2 (0 is the default medlody)
 
 float referenceTiltAngle = 90.0; // Default "good" posture angle before calibration
 
-float tilt; 
-float X, Y, Z, totalAccel;
+float X, Y, Z; // Variables to store accelerometer readings
+float tilt; // Angle of the user's posture in degrees
+float totalAccel; // The net acceleration across all axes (used to determine stillness)
 
 unsigned long previousTime = 0;
 unsigned long sliderTime = 0;
