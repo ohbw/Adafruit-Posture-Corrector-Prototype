@@ -1,12 +1,12 @@
 #include <Adafruit_CircuitPlayground.h>
 
 #define VIBRATION_MOTOR_PIN 10    // Pin for the vibration motor
-#define SITTING_THRESHOLD 9.3    // Acceleration threshold for detecting sitting (m/s²)
-#define MOVEMENT_THRESHOLD 9.5    // Acceleration threshold for detecting movement (m/s²)
-#define SITTING_TIME_LIMIT 900000 // 15 minutes in milliseconds
-#define BAD_POSTURE_TIME_LIMIT 10000 // 10 seconds in milliseconds
-#define SITTING_DETECTION_TIME 5000 // 5 seconds in milliseconds
-#define POSTURE_THRESHOLD 18.3 // Threshold for bad posture in degrees experimentally determineed
+#define MOVEMENT_THRESHOLD 9.3    // Acceleration threshold for detecting movement or stillness (m/s²)
+#define SITTING_TIME_LIMIT 900000 // 15 minutes
+#define BAD_POSTURE_TIME_LIMIT 10000 // 10 seconds 
+#define SITTING_DETECTION_TIME 5000 // 5 seconds 
+#define ONE_SECOND_INTERVAL 1000 // 1 second 
+#define POSTURE_THRESHOLD 18.3 // Experimentally determined threshold for bad posture in degrees 
 
 unsigned long currentTime = 0; // Variable to store the current time
 unsigned long sittingStillStartTime = 0;   // Track when the user stopped moving
@@ -24,13 +24,11 @@ int melodyOption = 0;
 
 float referenceTiltAngle = 90.0; // Default "good" posture angle before calibration
 
-float tilt;
+float tilt; 
 float X, Y, Z, totalAccel;
 
 unsigned long previousTime = 0;
-const long oneSecondInterval = 1000;
 unsigned long sliderTime = 0;
-
 unsigned long buttonPressTime = 0;
 unsigned long button2PressTime = 0;
 
@@ -83,6 +81,7 @@ void playMelody3() {
 void playMelody(int melody[], int noteDurations[]) {
   for (int i = 0; i < 3; i++) {
     CircuitPlayground.playTone(melody[i], noteDurations[i]);
+    delay(noteDurations[i]);  // Add a short pause between notes
   }
 }
 
@@ -98,13 +97,13 @@ void loop() {
   currentTime = millis();  // Get the current time
 
   // Check slider value every 1 second
-  if (currentTime - sliderTime >= oneSecondInterval) {
+  if (currentTime - sliderTime >= ONE_SECOND_INTERVAL) {
     sliderOn = CircuitPlayground.slideSwitch();  // Read the slider state
     sliderTime = currentTime;  // Update the last slider check time
   }
 
   if (sliderOn) {
-    if ((currentTime - previousTime >= oneSecondInterval)) {
+    if ((currentTime - previousTime >= ONE_SECOND_INTERVAL)) {
       previousTime = currentTime;  // Update the last action time
 
       // Get accelerometer data for X, Y, Z axes
@@ -132,7 +131,7 @@ void loop() {
           }
         }
         setLEDsBadPosture();  // Turn all LEDs red for bad posture
-      } else { // Tilt in good posture
+      } else { // Tilt is in good posture
         if (inBadPosture) {
           // Reset bad posture state
           inBadPosture = false;
@@ -175,24 +174,25 @@ void loop() {
           } else if (melodyOption == 2) {
             playMelody3();
           }
+        }
       }
+    } else {
+      CircuitPlayground.clearPixels();  // Turn off all LEDs when slider is off
     }
-  } else {
-    CircuitPlayground.clearPixels();  // Turn off all LEDs when slider is off
-  }
 
-  // Melody button press detection
-  if (CircuitPlayground.leftButton() && (currentTime - buttonPressTime > oneSecondInterval)) {
-    melodyOption = (melodyOption + 1) % 3;  // Cycle between 0, 1, and 2 for melody selection
-    buttonPressTime = currentTime;
-    Serial.print("Melody option changed to: ");
-    Serial.println(melodyOption);
-  }
+    // Melody button press detection
+    if (CircuitPlayground.leftButton() && (currentTime - buttonPressTime > ONE_SECOND_INTERVAL)) {
+      melodyOption = (melodyOption + 1) % 3;  // Cycle between 0, 1, and 2 for melody selection
+      buttonPressTime = currentTime;
+      Serial.print("Melody option changed to: ");
+      Serial.println(melodyOption);
+    }
 
-  if (CircuitPlayground.rightButton() && (currentTime - button2PressTime > oneSecondInterval)) {
-    referenceTiltAngle = tilt;
-    Serial.print("Tilt reference angle updated: ");
-    Serial.println(referenceTiltAngle);
-    button2PressTime = currentTime;
+    if (CircuitPlayground.rightButton() && (currentTime - button2PressTime > ONE_SECOND_INTERVAL)) {
+      referenceTiltAngle = tilt;
+      Serial.print("Tilt reference angle updated: ");
+      Serial.println(referenceTiltAngle);
+      button2PressTime = currentTime;
+    }
   }
 }
