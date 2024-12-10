@@ -1,13 +1,14 @@
 #include <Adafruit_CircuitPlayground.h>
 
 #define VIBRATION_MOTOR_PIN 10    // Pin for the vibration motor
-#define SITTING_THRESHOLD 9.6    // Acceleration threshold for detecting sitting (m/s²)
-#define MOVEMENT_THRESHOLD 10.0    // Acceleration threshold for detecting movement (m/s²)
+#define SITTING_THRESHOLD 9.3    // Acceleration threshold for detecting sitting (m/s²)
+#define MOVEMENT_THRESHOLD 9.5    // Acceleration threshold for detecting movement (m/s²)
 #define SITTING_TIME_LIMIT 900000 // 15 minutes in milliseconds
 #define BAD_POSTURE_TIME_LIMIT 10000 // 10 seconds in milliseconds
 #define SITTING_DETECTION_TIME 5000 // 5 seconds in milliseconds
+#define POSTURE_THRESHOLD 18.3 // Threshold for bad posture in degrees experimentally determineed
 
-unsigned long currentMillis = 0; // Variable to store the current time
+unsigned long currentTime = 0; // Variable to store the current time
 unsigned long sittingStillStartTime = 0;   // Track when the user stopped moving
 unsigned long sittingStartTime = 0;        // Track when the user started sitting
 unsigned long badPostureStartTime = 0;     // Track when bad posture starts
@@ -26,12 +27,12 @@ float referenceTiltAngle = 90.0; // Default "good" posture angle before calibrat
 float tilt;
 float X, Y, Z, totalAccel;
 
-unsigned long previousMillis = 0;
+unsigned long previousTime = 0;
 const long oneSecondInterval = 1000;
-unsigned long sliderMillis = 0;
+unsigned long sliderTime = 0;
 
-unsigned long buttonPressMillis = 0;
-unsigned long button2PressMillis = 0;
+unsigned long buttonPressTime = 0;
+unsigned long button2PressTime = 0;
 
 // Function to activate the vibration motor
 void activateVibrationMotor() {
@@ -94,18 +95,17 @@ void setup() {
 }
 
 void loop() {
-  currentMillis = millis();  // Get the current time
+  currentTime = millis();  // Get the current time
 
   // Check slider value every 1 second
-  if (currentMillis - sliderMillis >= oneSecondInterval) {
-    sliderMillis = currentMillis;  // Update the last slider check time
+  if (currentTime - sliderTime >= oneSecondInterval) {
     sliderOn = CircuitPlayground.slideSwitch();  // Read the slider state
+    sliderTime = currentTime;  // Update the last slider check time
   }
 
   if (sliderOn) {
-    currentMillis = millis();  // Get the current time
-    if ((currentMillis - previousMillis >= oneSecondInterval)) {
-      previousMillis = currentMillis;  // Update the last action time
+    if ((currentTime - previousTime >= oneSecondInterval)) {
+      previousTime = currentTime;  // Update the last action time
 
       // Get accelerometer data for X, Y, Z axes
       X = CircuitPlayground.motionX();
@@ -119,7 +119,7 @@ void loop() {
       tilt = acos(Z / 9.8) * (180.0 / PI);
 
       // Compare tilt with reference angle to determine posture
-      if (abs(tilt - referenceTiltAngle) > 18.3) {  // 18.3 degrees threshold for bad posture
+      if (abs(tilt - referenceTiltAngle) > POSTURE_THRESHOLD) {  // 18.3 degrees threshold for bad posture
         if (!inBadPosture) {
           // User just entered bad posture
           inBadPosture = true;
@@ -182,17 +182,17 @@ void loop() {
   }
 
   // Melody button press detection
-  if (CircuitPlayground.leftButton() && (currentMillis - buttonPressMillis > oneSecondInterval)) {
+  if (CircuitPlayground.leftButton() && (currentTime - buttonPressTime > oneSecondInterval)) {
     melodyOption = (melodyOption + 1) % 3;  // Cycle between 0, 1, and 2 for melody selection
-    buttonPressMillis = currentMillis;
+    buttonPressTime = currentTime;
     Serial.print("Melody option changed to: ");
     Serial.println(melodyOption);
   }
 
-  if (CircuitPlayground.rightButton() && (currentMillis - button2PressMillis > oneSecondInterval)) {
+  if (CircuitPlayground.rightButton() && (currentTime - button2PressTime > oneSecondInterval)) {
     referenceTiltAngle = tilt;
     Serial.print("Tilt reference angle updated: ");
     Serial.println(referenceTiltAngle);
-    button2PressMillis = currentMillis;
+    button2PressTime = currentTime;
   }
 }
